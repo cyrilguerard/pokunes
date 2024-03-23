@@ -37,11 +37,13 @@ impl Rom {
         let (data, flag6) = Self::read_flags_6(data);
         let prg_rom_start_idx = HEADER_SIZE + if flag6.trainer { 512 } else { 0 };
         let prg_rom_end_idx = prg_rom_start_idx + prg_rom_size - 1;
-        Ok(Self {
+        let rom = Self {
             prg_rom_size,
             prg_rom: Vec::from(&data[prg_rom_start_idx..prg_rom_end_idx]),
             trainer: flag6.trainer,
-        })
+        };
+        println!("[ROM] LOADED: {:?}", rom);
+        Ok(rom)
     }
 
     fn read_prg_rom_size(data: Vec<u8>) -> (Vec<u8>, usize) {

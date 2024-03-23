@@ -1,5 +1,3 @@
-extern crate lazy_static;
-
 // https://github.com/christopherpow/nes-test-roms
 // CHR-ROM: Character ROM
 // PRG ROM: Program ROM

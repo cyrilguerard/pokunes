@@ -6,7 +6,6 @@ pub mod rom;
 
 pub fn emulate(rom_file: &str) {
     let rom = Rom::load_from_file(rom_file.to_owned()).unwrap();
-    println!("ROM: {:?}", rom);
 
     let nes = Nes::new();
     let nes = nes::insert_rom(nes, rom);
