@@ -1,11 +1,19 @@
-use std::{fmt::Debug, fs, io};
+use std::{fmt::Debug, fs, path::Path};
+
+use crate::PokunesError;
 
 const HEADER_SIZE: usize = 16;
 const HEADER_PRG_ROM: usize = 4;
 const HEADER_FLAGS_6: usize = 6;
 
+#[derive(Debug)]
+pub enum RomErrorReason {
+    ReadFailed(String),
+}
+
 #[derive(Clone)]
 pub struct Rom {
+    pub name: String,
     pub prg_rom_size: usize,
     pub prg_rom: Vec<u8>,
     pub trainer: bool,
@@ -31,18 +39,32 @@ struct Flags6 {
 }
 
 impl Rom {
-    pub fn load_from_file(filepath: String) -> Result<Self, io::Error> {
-        let data = fs::read(filepath)?;
+    pub fn load_from_file(filepath: String) -> Result<Self, PokunesError> {
+        println!("[ROM] Loading: {:}", filepath);
+
+        let path = Path::new(&filepath);
+        let data = fs::read(path).map_err(|err| {
+            PokunesError::RomError(RomErrorReason::ReadFailed(format!("{}", err)))
+        })?;
+
+        let name = path
+            .file_stem()
+            .map(|os_str| os_str.to_str())
+            .flatten()
+            .unwrap_or("")
+            .to_owned();
         let (data, prg_rom_size) = Self::read_prg_rom_size(data);
         let (data, flag6) = Self::read_flags_6(data);
         let prg_rom_start_idx = HEADER_SIZE + if flag6.trainer { 512 } else { 0 };
         let prg_rom_end_idx = prg_rom_start_idx + prg_rom_size - 1;
         let rom = Self {
+            name,
             prg_rom_size,
-            prg_rom: Vec::from(&data[prg_rom_start_idx..prg_rom_end_idx]),
+            prg_rom: Vec::from(&data[prg_rom_start_idx..=prg_rom_end_idx]),
             trainer: flag6.trainer,
         };
-        println!("[ROM] LOADED: {:?}", rom);
+
+        println!("[ROM] Loaded: {:?}", rom);
         Ok(rom)
     }
 

@@ -1,6 +1,8 @@
 use crate::{
-    cpu::{self, Cpu, CpuError},
+    cpu::{self, Cpu},
+    mem::{self, Memory},
     rom::Rom,
+    PokunesError,
 };
 
 pub enum PowerStatus {
@@ -9,15 +11,15 @@ pub enum PowerStatus {
 }
 
 #[derive(Debug)]
-pub enum NesError {
+pub enum NesErrorReason {
     NoRomInserted,
     NotPowerOn,
-    CpuFailure(CpuError),
 }
 
 pub struct Nes {
     power_status: PowerStatus,
     cpu: Cpu,
+    mem: Memory,
     rom: Option<Rom>,
 }
 
@@ -26,32 +28,47 @@ impl Nes {
         Self {
             power_status: PowerStatus::Off,
             cpu: Default::default(),
+            mem: Default::default(),
             rom: None,
         }
     }
 }
 
-pub fn insert_rom(nes: Nes, rom: Rom) -> Nes {
-    Nes {
-        cpu: cpu::load_program(Cpu::default(), rom.clone().into()),
-        rom: Some(rom),
-        ..nes
-    }
-}
+pub fn insert_rom(nes: Nes, rom: Rom) -> Result<Nes, PokunesError> {
+    println!("[NES] Inserting ROM: {:}", rom.name);
 
-pub fn power_on(nes: Nes) -> Result<Nes, NesError> {
-    nes.rom.ok_or(NesError::NoRomInserted).map(|rom| Nes {
-        power_status: PowerStatus::On,
+    let prg_rom: Vec<u8> = rom.clone().into();
+    let mem = mem::load_rom(nes.mem, prg_rom)?;
+    let (cpu, mem) = cpu::reset(nes.cpu, mem)?;
+
+    println!("[NES] ROM inserted");
+    Ok(Nes {
+        cpu,
+        mem,
         rom: Some(rom),
         ..nes
     })
 }
 
-pub fn next_cycle(nes: Nes) -> Result<Nes, NesError> {
+pub fn power_on(nes: Nes) -> Result<Nes, PokunesError> {
+    println!("[NES] Powering up");
+    nes.rom
+        .ok_or(PokunesError::NesError(NesErrorReason::NoRomInserted))
+        .map(|rom| {
+            println!("[NES] Powered up");
+            Nes {
+                power_status: PowerStatus::On,
+                rom: Some(rom),
+                ..nes
+            }
+        })
+}
+
+pub fn next_cycle(nes: Nes) -> Result<Nes, PokunesError> {
     if let PowerStatus::Off = nes.power_status {
-        Err(NesError::NotPowerOn)
+        Err(PokunesError::NesError(NesErrorReason::NotPowerOn))
     } else {
-        let cpu = cpu::tick(nes.cpu).map_err(|err| NesError::CpuFailure(err))?;
-        Ok(Nes { cpu, ..nes })
+        let (cpu, mem) = cpu::tick(nes.cpu, nes.mem)?;
+        Ok(Nes { cpu, mem, ..nes })
     }
 }
