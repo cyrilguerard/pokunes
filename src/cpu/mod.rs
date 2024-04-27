@@ -85,11 +85,11 @@ pub fn tick(cpu: Cpu, mem: Memory) -> Result<(Cpu, Memory), PokunesError> {
     println!("[CPU] Tick...");
     read_next_op(cpu, mem).and_then(|(cpu, mem, cpu_op)| {
         println!(
-            "[CPU] =========================================================== {}[{:02x}] ===========================================================",
-            cpu_op.accronym, cpu_op.code
+            "[CPU] =========================================================== {}[{}] ===========================================================",
+            cpu_op.accronym, format!("{:02x}", cpu_op.code).to_uppercase()
         );
         println!("[CPU] <<<<: {:?}", cpu);
-        let cpu = (cpu_op.apply)(cpu)?;
+        let (cpu, mem) = (cpu_op.apply)(cpu, mem, cpu_op.addressing_mode)?;
         println!("[CPU] >>>> : {:?}", cpu);
         println!("[CPU] ===============================================================================================================================");
 
@@ -104,25 +104,32 @@ fn read_next_op(cpu: Cpu, mem: Memory) -> Result<(Cpu, Memory, CpuOp), PokunesEr
         &format!("{:02x}", cpu.program_counter).to_uppercase()
     );
     let (mem, op_code) = mem::read_u8(mem, cpu.program_counter)?;
+    let program_counter = cpu.program_counter + 1;
+    let cpu = move_program_counter(cpu, program_counter);
     let op = match op_code {
         0x78 => CpuOp {
             code: op_code,
             accronym: "SEI",
             apply: ops::sei,
+            addressing_mode: AddressingMode::Implied,
         },
-        // 0x4C => CpuOp {
-        //     code: op_code,
-        //     accronym: "JMP",
-        //     apply: ops::create_jmp(AddressingMode::Absolute)?,
-        // },
-        // 0x8D => CpuOp {
-        //     code: op_code,
-        //     accronym: "STA",
-        //     apply: |cpu| {
-        //         let (memory, _) = mem::read_u16(memory, cpu.program_counter)?;
-        //         Ok(cpu)
-        //     },
-        // },
+        0x4C => CpuOp {
+            code: op_code,
+            accronym: "JMP",
+            apply: ops::jmp,
+            addressing_mode: AddressingMode::Absolute,
+        },
+        0x8D => CpuOp {
+            code: op_code,
+            accronym: "STA",
+            apply: |cpu, mem, a| {
+                let (mem, addr) = mem::read_u16(mem, cpu.program_counter)?;
+                println!("addr: {:02x}", addr);
+                Ok((cpu, mem))
+            },
+            addressing_mode: AddressingMode::Absolute,
+
+        },
         // 0xA9 => CpuOp {
         //     code: op_code,
         //     accronym: "LDA",
