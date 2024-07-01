@@ -122,9 +122,10 @@ fn read_next_op(cpu: Cpu, mem: Memory) -> Result<(Cpu, Memory, CpuOp), PokunesEr
         0x8D => CpuOp {
             code: op_code,
             accronym: "STA",
-            apply: |cpu, mem, a| {
+            apply: |cpu, mem, _a| {
                 let (mem, addr) = mem::read_u16(mem, cpu.program_counter)?;
                 println!("addr: {:02x}", addr);
+                //TODO: set memory
                 Ok((cpu, mem))
             },
             addressing_mode: AddressingMode::Absolute,
